@@ -9,10 +9,21 @@ Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:5,1')
     ->name('api.login');
 
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+    ->middleware('throttle:5,1')
+    ->name('api.password.email');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+    ->middleware('throttle:5,1')
+    ->name('api.password.reset');
+
 // All routes in this group require a valid Sanctum bearer token.
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
+    Route::put('/password', [AuthController::class, 'changePassword'])
+        ->middleware('throttle:5,1')
+        ->name('api.password.change');
+    Route::put('/update-profile', [AuthController::class, 'updateProfile'])->name('api.update-profile');
 
     Route::get('/products/summary', [ProductController::class, 'summary'])->name('api.products.summary');
     Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');

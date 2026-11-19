@@ -51,7 +51,9 @@
             <button type="submit" class="button button-primary button-full">Sign in</button>
         </form>
 
-        <p class="login-footnote">Secure access to your product inventory.</p>
+        <p class="login-footnote">
+            <a href="{{ route('password.request') }}">Forgot your password?</a>
+        </p>
     </section>
 </main>
 @endsection

@@ -12,6 +12,7 @@
 
         <div class="topbar-user">
             <span class="user-email" id="dashboard-email"></span>
+            <a class="button button-outline button-small" href="{{ route('profile') }}">Profile</a>
             <button class="button button-outline button-small" id="logout-button" type="button">Sign out</button>
         </div>
     </header>
