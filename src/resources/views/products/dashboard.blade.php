@@ -23,7 +23,7 @@
                 <h1>Your products</h1>
                 <p class="muted">Manage product details, prices, and stock from one place.</p>
             </div>
-            <a class="button button-primary" href="{{ route('products.create') }}">Add product</a>
+            <a class="button button-primary" href="{{ route('products.create') }}" data-admin-only hidden>Add product</a>
         </section>
 
         <div id="dashboard-message" class="notice" role="status" hidden></div>

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -62,5 +63,36 @@ class AuthApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('success', false)
             ->assertJsonValidationErrors(['email', 'password']);
+    }
+
+    public function test_current_user_endpoint_reports_non_admin_role(): void
+    {
+        $user = User::factory()->create();
+
+        $this->withToken($user->createToken('user')->plainTextToken)
+            ->getJson('/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.is_admin', false)
+            ->assertJsonPath('data.user.email', $user->email);
+    }
+
+    public function test_current_user_endpoint_reports_admin_role(): void
+    {
+        $admin = User::factory()->create();
+        $adminRole = Role::query()->create([
+            'name' => 'Admin',
+            'slug' => 'admin',
+        ]);
+        $admin->roles()->attach($adminRole);
+
+        $this->assertDatabaseHas('role_user', [
+            'user_id' => $admin->id,
+            'role_id' => $adminRole->id,
+        ]);
+
+        $this->withToken($admin->createToken('admin')->plainTextToken)
+            ->getJson('/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.is_admin', true);
     }
 }

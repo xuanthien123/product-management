@@ -18,6 +18,7 @@ export function initializeDashboard() {
     const productList = document.querySelector('#product-list');
     const message = document.querySelector('#dashboard-message');
     const logoutButton = document.querySelector('#logout-button');
+    const addProductButton = document.querySelector('[data-admin-only]');
     const filterForm = document.querySelector('#product-filters');
     const clearFiltersButton = document.querySelector('#clear-product-filters');
     const pagination = document.querySelector('#product-pagination');
@@ -27,9 +28,22 @@ export function initializeDashboard() {
     let currentPage = 1;
     let lastPage = 1;
     let latestRequest = 0;
+    let reloadSummary = true;
+    let canManageProducts = false;
 
-    document.querySelector('#dashboard-email').textContent =
-        sessionStorage.getItem(emailKey) || '';
+    function disableAdminControls() {
+        canManageProducts = false;
+        addProductButton.hidden = true;
+        productList.querySelectorAll('[data-admin-actions]').forEach((actions) => actions.remove());
+    }
+
+    function showDashboardError(error) {
+        if (error.status === 403) {
+            disableAdminControls();
+        }
+
+        showMessage(message, messageFor(error));
+    }
 
     function renderEmptyState() {
         const emptyState = makeElement('div', 'empty-state');
@@ -52,15 +66,15 @@ export function initializeDashboard() {
         productList.replaceChildren(emptyState);
     }
 
-    function updateSummary(totalProducts, meta) {
-        document.querySelector('#total-products').textContent = totalProducts.toLocaleString();
-        document.querySelector('#total-units').textContent = Number(meta.total_units).toLocaleString();
-        document.querySelector('#inventory-value').textContent = Number(meta.inventory_value).toLocaleString(
+    function updateSummary(summary) {
+        document.querySelector('#total-products').textContent = summary.total_products.toLocaleString();
+        document.querySelector('#total-units').textContent = Number(summary.total_units).toLocaleString();
+        document.querySelector('#inventory-value').textContent = Number(summary.inventory_value).toLocaleString(
             undefined,
             { minimumFractionDigits: 2, maximumFractionDigits: 2 },
         );
         document.querySelector('#product-count').textContent =
-            `${totalProducts.toLocaleString()} ${totalProducts === 1 ? 'item' : 'items'}`;
+            `${summary.total_products.toLocaleString()} ${summary.total_products === 1 ? 'item' : 'items'}`;
     }
 
     function makeProductCard(product) {
@@ -107,42 +121,48 @@ export function initializeDashboard() {
             makeElement('span', '', ' per unit'),
         );
 
-        const actions = makeElement('div', 'product-actions');
-        const editButton = makeElement('button', 'button button-outline button-small', 'Edit');
-        editButton.type = 'button';
-        editButton.addEventListener('click', () => {
-            window.location.assign(`/products/${product.id}/edit`);
-        });
+        if (canManageProducts) {
+            const actions = makeElement('div', 'product-actions');
+            actions.dataset.adminActions = '';
+            const editButton = makeElement('button', 'button button-outline button-small', 'Edit');
+            editButton.type = 'button';
+            editButton.addEventListener('click', () => {
+                window.location.assign(`/products/${product.id}/edit`);
+            });
 
-        const deleteButton = makeElement('button', 'button button-danger button-small', 'Delete');
-        deleteButton.type = 'button';
-        deleteButton.addEventListener('click', async () => {
-            if (!window.confirm(`Delete "${product.name}"?`)) {
-                return;
-            }
+            const deleteButton = makeElement('button', 'button button-danger button-small', 'Delete');
+            deleteButton.type = 'button';
+            deleteButton.addEventListener('click', async () => {
+                if (!window.confirm(`Delete "${product.name}"?`)) {
+                    return;
+                }
 
-            deleteButton.disabled = true;
-            showMessage(message, '');
+                deleteButton.disabled = true;
+                showMessage(message, '');
 
-            try {
-                await requestApi(`/api/products/${product.id}`, { method: 'DELETE' });
-                showMessage(message, 'Product deleted.', 'success');
-                await loadProducts();
-            } catch (error) {
-                showMessage(message, messageFor(error));
-                deleteButton.disabled = false;
-            }
-        });
+                try {
+                    await requestApi(`/api/products/${product.id}`, { method: 'DELETE' });
+                    showMessage(message, 'Product deleted.', 'success');
+                    reloadSummary = true;
+                    await loadProducts();
+                } catch (error) {
+                    showDashboardError(error);
+                    deleteButton.disabled = false;
+                }
+            });
 
-        actions.append(editButton, deleteButton);
-        footer.append(price, actions);
+            actions.append(editButton, deleteButton);
+            footer.append(price, actions);
+        } else {
+            footer.append(price);
+        }
         card.append(heading, footer);
 
         return card;
     }
 
-    function renderProducts(products, meta) {
-        updateSummary(meta.total, meta);
+    function renderProducts(products) {
+        // updateSummary(summary);
 
         if (products.length === 0) {
             renderEmptyState();
@@ -177,6 +197,25 @@ export function initializeDashboard() {
                 query.set(key, value);
             }
         });
+        if (reloadSummary) {
+            try {
+                const summaryResult = await requestApi('/api/products/summary');
+                const summary = summaryResult?.data;
+
+                if (
+                    !Number.isInteger(summary?.total_products)
+                    || !Number.isInteger(summary?.total_units)
+                    || !Number.isFinite(summary?.inventory_value)
+                ) {
+                    throw new Error('The server returned an invalid product summary.');
+                }
+
+                updateSummary(summary);
+                reloadSummary = false;
+            } catch (error) {
+                showDashboardError(error);
+            }
+        }
 
         try {
             const result = await requestApi(`/api/products?${query.toString()}`);
@@ -193,8 +232,6 @@ export function initializeDashboard() {
                 || !Number.isInteger(meta?.current_page)
                 || !Number.isInteger(meta?.last_page)
                 || !Number.isInteger(meta?.total)
-                || !Number.isFinite(Number(meta?.total_units))
-                || !Number.isFinite(Number(meta?.inventory_value))
             ) {
                 throw new Error('The server returned an invalid product list.');
             }
@@ -204,14 +241,14 @@ export function initializeDashboard() {
                 return;
             }
 
-            renderProducts(products, meta);
+            renderProducts(products);
             renderPagination(meta);
         } catch (error) {
             if (requestId !== latestRequest) {
                 return;
             }
 
-            showMessage(message, messageFor(error));
+            showDashboardError(error);
             productList.replaceChildren(makeElement('p', 'muted', 'Products could not be loaded.'));
             pagination.hidden = true;
         }
@@ -259,7 +296,7 @@ export function initializeDashboard() {
             sessionStorage.removeItem(emailKey);
             window.location.assign('/login');
         } catch (error) {
-            showMessage(message, messageFor(error));
+            showDashboardError(error);
             logoutButton.disabled = false;
         }
     });
@@ -267,6 +304,20 @@ export function initializeDashboard() {
     if (!sessionStorage.getItem(tokenKey)) {
         window.location.replace('/login');
     } else {
-        loadProducts();
+    requestApi('/api/me')
+        .then((result) => {
+            const currentUser = result?.data;
+
+            if (typeof currentUser?.is_admin !== 'boolean') {
+                throw new Error('The server returned an invalid user profile.');
+            }
+
+            canManageProducts = currentUser.is_admin;
+            addProductButton.hidden = !canManageProducts;
+            document.querySelector('#dashboard-email').textContent =
+                currentUser.user?.email || sessionStorage.getItem(emailKey) || '';
+        })
+        .catch(showDashboardError)
+        .finally(loadProducts);
     }
 }

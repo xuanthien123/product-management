@@ -3,24 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Helpers\ApiResponse;
+use App\Http\Requests\GetProductRequest;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(GetProductRequest $request): JsonResponse
     {
         $productQuery = Product::query();
 
-        $validated = $request->validate([
-            'page' => ['sometimes', 'integer', 'min:1'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'min_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'max_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'sort' => ['sometimes', 'in:asc,desc'],
-        ]);
+        $validated = $request->validated();
 
         if (! empty($validated['search'])) {
             $productQuery->where(
@@ -70,14 +66,9 @@ class ProductController extends Controller
         );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreProductRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'quantity' => ['required', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $product = Product::create($validated);
 
@@ -89,14 +80,9 @@ class ProductController extends Controller
         return ApiResponse::success($product, 'Product retrieved successfully.');
     }
 
-    public function update(Request $request, Product $product): JsonResponse
+    public function update(UpdateProductRequest $request, Product $product): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'description' => ['sometimes', 'nullable', 'string'],
-            'price' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'quantity' => ['sometimes', 'required', 'integer', 'min:0'],
-        ]);
+        $validated = $request->validated();
 
         $product->update($validated);
 
@@ -108,5 +94,20 @@ class ProductController extends Controller
         $product->delete();
 
         return ApiResponse::success(null, 'Product deleted successfully.');
+    }
+
+    public function summary(): JsonResponse
+    {
+        $summary = Product::query()
+            ->selectRaw(
+                'COUNT(*) as total_products, COALESCE(SUM(quantity), 0) as total_units, COALESCE(SUM(price * quantity), 0) as inventory_value'
+            )
+            ->first();
+
+        return ApiResponse::success([
+            'total_products' => (int) $summary->total_products,
+            'total_units' => (int) $summary->total_units,
+            'inventory_value' => (float) $summary->inventory_value,
+        ], 'Product summary retrieved successfully.');
     }
 }

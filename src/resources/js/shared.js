@@ -68,6 +68,7 @@ export async function requestApi(url, { method = 'GET', data = null, requiresAut
     if (!response.ok) {
         const error = new Error(result?.message || 'The request could not be completed.');
         error.validationErrors = result?.errors;
+        error.status = response.status;
         throw error;
     }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -112,9 +113,42 @@ class ProductApiTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    public function test_missing_product_returns_a_model_specific_not_found_message(): void
+    {
+        $this->authenticate();
+
+        $this->getJson('/api/products/99')
+            ->assertNotFound()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Product not found.')
+            ->assertJsonMissing(['message' => 'No query results for model [App\\Models\\Product] 99']);
+    }
+
+    public function test_non_admin_users_cannot_create_products(): void
+    {
+        $user = User::factory()->create();
+        $this->withToken($user->createToken('test')->plainTextToken);
+
+        $this->postJson('/api/products', [
+            'name' => 'Forbidden product',
+            'price' => 10,
+            'quantity' => 1,
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('success', false);
+
+        $this->assertDatabaseMissing('products', ['name' => 'Forbidden product']);
+    }
+
     private function authenticate(): void
     {
         $user = User::factory()->create();
+        $adminRole = Role::query()->create([
+            'name' => 'Admin',
+            'slug' => 'admin',
+        ]);
+        $user->roles()->attach($adminRole);
+
         $this->withToken($user->createToken('test')->plainTextToken);
     }
 }

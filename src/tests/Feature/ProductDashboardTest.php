@@ -23,6 +23,7 @@ class ProductDashboardTest extends TestCase
         $this->get('/dashboard')
             ->assertOk()
             ->assertSee('data-dashboard', false)
+            ->assertSee('data-admin-only hidden', false)
             ->assertSee('id="product-list"', false);
     }
 }

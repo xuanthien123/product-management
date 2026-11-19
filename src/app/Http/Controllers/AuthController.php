@@ -19,7 +19,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::query()->where('email', $credentials['email'])->first();
-
+        // echo $user->password;
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return ApiResponse::error('Invalid credentials.', 401);
         }
@@ -27,7 +27,7 @@ class AuthController extends Controller
         return ApiResponse::success([
             'token' => $user->createToken('api')->plainTextToken,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => User::query()->with('roles')->find($user->id),
         ], 'Login successful.');
     }
 
@@ -40,5 +40,15 @@ class AuthController extends Controller
         }
 
         return ApiResponse::success(null, 'Logged out successfully.');
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $currentUser = User::query()->with('roles')->find($user->id);
+        return ApiResponse::success([
+            'user' => $currentUser,
+            'is_admin' => $currentUser->roles()->where('slug', 'admin')->exists(),
+        ], 'Current user retrieved successfully.');
     }
 }
