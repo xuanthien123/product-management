@@ -18,7 +18,8 @@ export function initializeDashboard() {
     const productList = document.querySelector('#product-list');
     const message = document.querySelector('#dashboard-message');
     const logoutButton = document.querySelector('#logout-button');
-    const addProductButton = document.querySelector('[data-admin-only]');
+    const exportButton = document.querySelector('#export-products-button');
+    const adminControls = document.querySelectorAll('[data-admin-only]');
     const filterForm = document.querySelector('#product-filters');
     const clearFiltersButton = document.querySelector('#clear-product-filters');
     const pagination = document.querySelector('#product-pagination');
@@ -30,10 +31,13 @@ export function initializeDashboard() {
     let latestRequest = 0;
     let reloadSummary = true;
     let canManageProducts = false;
+    let userRequest = Promise.resolve();
 
     function disableAdminControls() {
         canManageProducts = false;
-        addProductButton.hidden = true;
+        adminControls.forEach((controls) => {
+            controls.hidden = true;
+        });
         productList.querySelectorAll('[data-admin-actions]').forEach((actions) => actions.remove());
     }
 
@@ -50,7 +54,8 @@ export function initializeDashboard() {
         const hasFilters = Boolean(
             filterForm.elements.search.value.trim()
             || filterForm.elements.min_price.value
-            || filterForm.elements.max_price.value,
+            || filterForm.elements.max_price.value
+            || filterForm.elements.category_id.value,
         );
         emptyState.append(
             makeElement('span', 'empty-icon', '▦'),
@@ -77,6 +82,28 @@ export function initializeDashboard() {
             `${summary.total_products.toLocaleString()} ${summary.total_products === 1 ? 'item' : 'items'}`;
     }
 
+    async function loadCategoryOptions() {
+        try {
+            const result = await requestApi('/api/categories');
+            const categories = result?.data;
+
+            if (
+                !Array.isArray(categories)
+                || categories.some((category) =>
+                    !Number.isInteger(Number(category?.id)) || typeof category?.name !== 'string')
+            ) {
+                throw new Error('The server returned an invalid category list.');
+            }
+
+            const categoryFilter = filterForm.elements.category_id;
+            categories.forEach((category) => {
+                categoryFilter.add(new Option(category.name, String(category.id)));
+            });
+        } catch (error) {
+            showDashboardError(error);
+        }
+    }
+
     function makeProductCard(product) {
         const card = makeElement('article', 'product-card');
         const heading = makeElement('div', 'product-card-heading');
@@ -101,6 +128,14 @@ export function initializeDashboard() {
                 hour12: false,
             }) : 'Unknown date'),
         );
+
+        if (Array.isArray(product.categories) && product.categories.length > 0) {
+            const categories = makeElement('div', 'product-category-tags');
+            product.categories.forEach((category) => {
+                categories.append(makeElement('span', 'product-category-tag', category.name));
+            });
+            title.append(categories);
+        }
 
         const quantity = Number(product.quantity);
         const stockClass = quantity === 0 ? 'stock-empty' : quantity <= 5 ? 'stock-low' : '';
@@ -181,49 +216,82 @@ export function initializeDashboard() {
         nextPageButton.disabled = currentPage >= lastPage;
     }
 
-    async function loadProducts(page = currentPage) {
-        const requestId = ++latestRequest;
-        const formValues = new FormData(filterForm);
-        const query = new URLSearchParams({
-            page: String(page),
-            per_page: formValues.get('per_page'),
-            sort: formValues.get('sort'),
-        });
+    function productQuery(formValues, page = null) {
+        const query = new URLSearchParams();
 
-        ['search', 'min_price', 'max_price'].forEach((key) => {
-            const value = formValues.get(key).trim();
+        if (page !== null) {
+            query.set('page', String(page));
+            query.set('per_page', formValues.get('per_page'));
+        }
+
+        const sort = formValues.get('sort');
+        if (sort === 'oldest') {
+            query.set('sort_by', 'created_at');
+            query.set('sort', 'asc');
+        } else if (sort === 'price_asc') {
+            query.set('sort_by', 'price');
+            query.set('sort', 'asc');
+        } else if (sort === 'price_desc') {
+            query.set('sort_by', 'price');
+            query.set('sort', 'desc');
+        } else {
+            query.set('sort_by', 'created_at');
+            query.set('sort', 'desc');
+        }
+
+        ['search', 'min_price', 'max_price', 'category_id'].forEach((key) => {
+            const value = String(formValues.get(key) || '').trim();
 
             if (value) {
                 query.set(key, value);
             }
         });
-        if (reloadSummary) {
-            try {
-                const summaryResult = await requestApi('/api/products/summary');
-                const summary = summaryResult?.data;
 
-                if (
-                    !Number.isInteger(summary?.total_products)
-                    || !Number.isInteger(summary?.total_units)
-                    || !Number.isFinite(summary?.inventory_value)
-                ) {
-                    throw new Error('The server returned an invalid product summary.');
-                }
+        return query;
+    }
 
-                updateSummary(summary);
-                reloadSummary = false;
-            } catch (error) {
-                showDashboardError(error);
-            }
-        }
-
+    async function loadProducts(page = currentPage) {
+        const requestId = ++latestRequest;
+        const formValues = new FormData(filterForm);
+        const query = productQuery(formValues, page);
         try {
-            const result = await requestApi(`/api/products?${query.toString()}`);
+            const [summaryResponse, productsResponse] = await Promise.allSettled([
+                reloadSummary
+                    ? requestApi('/api/products/summary')
+                    : Promise.resolve(null),
+                requestApi(`/api/products?${query.toString()}`),
+            ]);
 
             if (requestId !== latestRequest) {
                 return;
             }
 
+            if (summaryResponse.status === 'rejected') {
+                showDashboardError(summaryResponse.reason);
+            } else if (summaryResponse.value) {
+                const summary = summaryResponse.value?.data;
+
+                try {
+                    if (
+                        !Number.isInteger(summary?.total_products)
+                        || !Number.isInteger(summary?.total_units)
+                        || !Number.isFinite(summary?.inventory_value)
+                    ) {
+                        throw new Error('The server returned an invalid product summary.');
+                    }
+
+                    updateSummary(summary);
+                    reloadSummary = false;
+                } catch (error) {
+                    showDashboardError(error);
+                }
+            }
+
+            if (productsResponse.status === 'rejected') {
+                throw productsResponse.reason;
+            }
+
+            const result = productsResponse.value;
             const products = result?.data;
             const meta = result?.meta;
 
@@ -241,6 +309,11 @@ export function initializeDashboard() {
                 return;
             }
 
+            await userRequest;
+            if (requestId !== latestRequest) {
+                return;
+            }
+
             renderProducts(products);
             renderPagination(meta);
         } catch (error) {
@@ -253,6 +326,62 @@ export function initializeDashboard() {
             pagination.hidden = true;
         }
     }
+
+    exportButton.addEventListener('click', async () => {
+        const token = sessionStorage.getItem(tokenKey);
+
+        if (!token) {
+            window.location.replace('/login');
+            return;
+        }
+
+        const query = productQuery(new FormData(filterForm));
+        const queryString = query.toString();
+        const url = `/api/products/export${queryString ? `?${queryString}` : ''}`;
+
+        setButtonBusy(exportButton, true, 'Exporting...');
+        showMessage(message, '');
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 401) {
+                sessionStorage.removeItem(tokenKey);
+                sessionStorage.removeItem(emailKey);
+                window.location.replace('/login');
+                throw new Error('Your session has expired. Please sign in again.');
+            }
+
+            if (!response.ok) {
+                const result = response.headers.get('content-type')?.includes('application/json')
+                    ? await response.json()
+                    : null;
+                const error = new Error(result?.message || 'Products could not be exported.');
+                error.validationErrors = result?.errors;
+                error.status = response.status;
+                throw error;
+            }
+
+            const objectUrl = URL.createObjectURL(await response.blob());
+            const downloadLink = document.createElement('a');
+            downloadLink.href = objectUrl;
+            downloadLink.download = 'products.xlsx';
+            document.body.append(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            showMessage(message, 'Product export downloaded.', 'success');
+        } catch (error) {
+            showDashboardError(error);
+        } finally {
+            setButtonBusy(exportButton, false);
+        }
+    });
 
     filterForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -304,20 +433,25 @@ export function initializeDashboard() {
     if (!sessionStorage.getItem(tokenKey)) {
         window.location.replace('/login');
     } else {
-    requestApi('/api/me')
-        .then((result) => {
-            const currentUser = result?.data;
+        userRequest = requestApi('/api/me')
+            .then((result) => {
+                const currentUser = result?.data;
 
-            if (typeof currentUser?.is_admin !== 'boolean') {
-                throw new Error('The server returned an invalid user profile.');
-            }
+                if (typeof currentUser?.is_admin !== 'boolean') {
+                    throw new Error('The server returned an invalid user profile.');
+                }
 
-            canManageProducts = currentUser.is_admin;
-            addProductButton.hidden = !canManageProducts;
-            document.querySelector('#dashboard-email').textContent =
-                currentUser.user?.email || sessionStorage.getItem(emailKey) || '';
-        })
-        .catch(showDashboardError)
-        .finally(loadProducts);
+                canManageProducts = currentUser.is_admin;
+                adminControls.forEach((controls) => {
+                    controls.hidden = !canManageProducts;
+                });
+                // adminControls.hidden = !canManageProducts;
+                document.querySelector('#dashboard-email').textContent =
+                    currentUser.user?.email || sessionStorage.getItem(emailKey) || '';
+            })
+            .catch(showDashboardError);
+
+        loadCategoryOptions();
+        loadProducts();
     }
 }

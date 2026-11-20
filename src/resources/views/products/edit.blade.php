@@ -10,9 +10,9 @@
             <span>Product Manager</span>
         </a>
 
-        <a class="button button-outline button-small" href="{{ route('dashboard') }}">
+        <a class="button button-outline button-small import-back-link" href="{{ route('dashboard') }}">
             <span aria-hidden="true">←</span>
-            <span>Back to products</span>
+            <span> Back to products</span>
         </a>
     </header>
 
@@ -112,6 +112,8 @@
                             </div>
                         </div>
 
+                        @include('products.partials.category-selector')
+
                         <div class="create-form-footer">
                             <p class="required-note"><span aria-hidden="true">*</span> Required fields</p>
                             <div class="create-actions">
@@ -124,6 +126,8 @@
                         </div>
                     </fieldset>
                 </form>
+
+                @include('products.partials.category-manager-dialog')
             </section>
 
             <aside class="create-aside">

@@ -93,14 +93,17 @@
                             >
                         </div>
                         <div class="field">
-                            <label for="edit-profile-sex">Sex</label>
-                            <input
+                            <label for="edit-profile-sex">Gender</label>
+                            <select
                                 id="edit-profile-sex"
+                                class="profile-gender-select"
                                 name="sex"
-                                type="text"
-                                maxlength="20"
-                                placeholder="Optional"
                             >
+                                <option value="">Prefer not to say</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
                     </div>
 

@@ -27,6 +27,8 @@ class StoreProductRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'price' => ['required', 'numeric', 'min:0'],
             'quantity' => ['required', 'integer', 'min:0'],
+            'category_ids' => ['sometimes', 'array'],
+            'category_ids.*' => ['integer', 'distinct', 'exists:categories,id'],
         ];
     }
     public function attributes(): array
@@ -36,6 +38,7 @@ class StoreProductRequest extends FormRequest
             'description' => 'product description',
             'price' => 'product price',
             'quantity' => 'product quantity',
+            'category_ids' => 'product categories',
         ];
     }
 

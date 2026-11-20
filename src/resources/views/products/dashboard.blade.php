@@ -24,7 +24,11 @@
                 <h1>Your products</h1>
                 <p class="muted">Manage product details, prices, and stock from one place.</p>
             </div>
-            <a class="button button-primary" href="{{ route('products.create') }}" data-admin-only hidden>Add product</a>
+            <div class="page-heading-actions" data-admin-only hidden>
+                <button class="button button-outline" id="export-products-button" type="button">Export Excel</button>
+                <a class="button button-outline" href="{{ route('products.import') }}">Import products</a>
+                <a class="button button-primary" href="{{ route('products.create') }}">Add product</a>
+            </div>
         </section>
 
         <div id="dashboard-message" class="notice" role="status" hidden></div>
@@ -68,6 +72,12 @@
                         <label for="filter-search">Product name</label>
                         <input id="filter-search" name="search" type="search" placeholder="Search products">
                     </div>
+                    <div class="filter-field filter-category">
+                        <label for="filter-category">Category</label>
+                        <select id="filter-category" name="category_id">
+                            <option value="">All categories</option>
+                        </select>
+                    </div>
                     <div class="filter-field">
                         <label for="filter-min-price">Min price</label>
                         <input id="filter-min-price" name="min_price" type="number" min="0" step="0.01" placeholder="Any">
@@ -77,10 +87,12 @@
                         <input id="filter-max-price" name="max_price" type="number" min="0" step="0.01" placeholder="Any">
                     </div>
                     <div class="filter-field">
-                        <label for="filter-sort">Sort by price</label>
+                        <label for="filter-sort">Sort by</label>
                         <select id="filter-sort" name="sort">
-                            <option value="asc">Price: low to high</option>
-                            <option value="desc">Price: high to low</option>
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="price_asc">Price: low to high</option>
+                            <option value="price_desc">Price: high to low</option>
                         </select>
                     </div>
                     <div class="filter-field">

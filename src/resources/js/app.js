@@ -6,6 +6,7 @@ import { initializeChangePassword } from './features/change-password.js';
 import { initializeForgotPassword, initializeResetPassword } from './features/password-recovery.js';
 import { initializeProfileEdit } from './features/profile-edit.js';
 import { initializeProfile } from './features/profile.js';
+import { initializeProductImport } from './features/product-import.js';
 
 initializeLogin();
 initializeProductCreate();
@@ -16,3 +17,4 @@ initializeForgotPassword();
 initializeResetPassword();
 initializeProfileEdit();
 initializeProfile();
+initializeProductImport();

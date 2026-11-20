@@ -32,7 +32,7 @@ export async function requestApi(url, { method = 'GET', data = null, requiresAut
         headers.Authorization = `Bearer ${token}`;
     }
 
-    if (data !== null) {
+    if (data !== null && !(data instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
     }
 
@@ -42,7 +42,11 @@ export async function requestApi(url, { method = 'GET', data = null, requiresAut
         response = await fetch(url, {
             method,
             headers,
-            body: data === null ? undefined : JSON.stringify(data),
+            body: data === null
+                ? undefined
+                : data instanceof FormData
+                    ? data
+                    : JSON.stringify(data),
         });
     } catch {
         throw new Error('Could not connect to the server. Please try again.');
@@ -109,5 +113,6 @@ export function formData(form) {
         description: fields.get('description').trim() || null,
         price: Number(fields.get('price')),
         quantity: Number(fields.get('quantity')),
+        category_ids: fields.getAll('category_ids[]').map(Number),
     };
 }

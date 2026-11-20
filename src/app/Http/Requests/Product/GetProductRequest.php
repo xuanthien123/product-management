@@ -29,6 +29,8 @@ class GetProductRequest extends FormRequest
             'min_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'max_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'sort' => ['sometimes', 'in:asc,desc'],
+            'sort_by' => ['sometimes', 'in:created_at,price'],
+            'category_id' => ['sometimes', 'nullable', 'integer', 'exists:categories,id'],
         ];
     }
 

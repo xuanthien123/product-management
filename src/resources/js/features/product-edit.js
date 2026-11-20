@@ -6,6 +6,7 @@ import {
     showMessage,
     tokenKey,
 } from '../shared.js';
+import { initializeProductCategories } from './product-categories.js';
 
 export function initializeProductEdit() {
     const editForm = document.querySelector('[data-product-edit-page]');
@@ -19,6 +20,7 @@ export function initializeProductEdit() {
     const loading = document.querySelector('#edit-product-loading');
     const message = document.querySelector('#edit-product-message');
     const submitButton = editForm.querySelector('button[type="submit"]');
+    const categorySelector = initializeProductCategories(editForm);
 
     async function loadProduct() {
         try {
@@ -43,6 +45,11 @@ export function initializeProductEdit() {
             editForm.elements.description.value = product.description || '';
             editForm.elements.price.value = product.price;
             editForm.elements.quantity.value = product.quantity;
+            categorySelector.setSelectedCategories(
+                Array.isArray(product.categories)
+                    ? product.categories.map((category) => category.id)
+                    : [],
+            );
             fields.disabled = false;
             loading.hidden = true;
         } catch (error) {

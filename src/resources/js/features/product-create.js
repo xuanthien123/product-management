@@ -6,6 +6,7 @@ import {
     showMessage,
     tokenKey,
 } from '../shared.js';
+import { initializeProductCategories } from './product-categories.js';
 
 export function initializeProductCreate() {
     const createForm = document.querySelector('[data-product-create-page]');
@@ -16,6 +17,7 @@ export function initializeProductCreate() {
 
     const message = document.querySelector('#create-product-message');
     const submitButton = createForm.querySelector('button[type="submit"]');
+    initializeProductCategories(createForm);
 
     createForm.addEventListener('submit', async (event) => {
         event.preventDefault();

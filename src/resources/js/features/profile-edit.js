@@ -54,7 +54,14 @@ export function initializeProfileEdit() {
         form.elements.date_of_birth.value = user.date_of_birth
             ? String(user.date_of_birth).slice(0, 10)
             : '';
-        form.elements.sex.value = user.sex || '';
+        const genderSelect = form.elements.sex;
+        const gender = user.sex || '';
+
+        if (gender && !Array.from(genderSelect.options).some((option) => option.value === gender)) {
+            genderSelect.add(new Option(gender, gender));
+        }
+
+        genderSelect.value = gender;
         sessionStorage.setItem(emailKey, user.email);
     }
 

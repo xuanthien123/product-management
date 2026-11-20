@@ -27,6 +27,8 @@ class UpdateProductRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0'],
             'quantity' => ['sometimes', 'required', 'integer', 'min:0'],
+            'category_ids' => ['sometimes', 'array'],
+            'category_ids.*' => ['integer', 'distinct', 'exists:categories,id'],
         ];
     }
 
@@ -37,6 +39,7 @@ class UpdateProductRequest extends FormRequest
             'description' => 'product description',
             'price' => 'product price',
             'quantity' => 'product quantity',
+            'category_ids' => 'product categories',
         ];
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ProductImportTemplateController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
@@ -11,6 +12,9 @@ Route::view('/dashboard', 'products.dashboard')->name('dashboard');
 
 Route::view('/products', 'products.index')->name('products.index');
 Route::view('/products/create', 'products.create')->name('products.create');
+Route::view('/products/import', 'products.import')->name('products.import');
+Route::get('/templates/products-import-template.xlsm', [ProductImportTemplateController::class, 'download'])
+    ->name('products.import-template');
 // Route::view('/products/{product}', 'products.show')->name('products.show');
 Route::view('/products/{product}/edit', 'products.edit')->name('products.edit');
 
